@@ -18,57 +18,86 @@ var smtpTransport = nodemailer.createTransport({
     }
 });
 
-function consumer(array){
-	var digested = []
-	_.each(array, function(line){
-		if (line.indexOf("RESPONSE") > -1){
-			if (line.indexOf("success") > -1){
-				var status = {
-					type: 'response',
-					line: line,
-					detail: 'success'
-				}
-			} else {
-					var status = {
-						type: 'response',
-						line: line,
-						detail: 'unknown'
-					}
-				}
-			digested.push(status)
-		}
-		if (line.indexOf("DEBUG") > -1){
-			var status = {
-				type: 'task',
-				line: line
-			}
-			digested.push(status)
-		}
-		if (line.indexOf("REQUEST") > -1){
-			if (line.indexOf("GET") > -1){
-				var status = {
-					type: 'request',
-					line: line,
-					detail: 'get'
-				}
-			}
-			if (line.indexOf("POST") > -1){
-				var status = {
-					type: 'request',
-					line: line,
-					detail: 'post'
-				}
-			}
-			digested.push(status)
-		}
-	})
-	result.getSummary(digested);
+function cleaner(index){
+	index.split('=')
+	return index[1]
 }
 
-fs.readFile('syskalogs.txt', 'utf8', function(err, data){
+function content(string){
+	if (string != "  "){
+		return string
+	}else{
+		return 'none'
+	}
+
+}
+
+function funk(thing){
+	var junk = _.last(thing, thing.length - 3)
+	junk = junk.join(' ')
+	return junk
+}
+
+function next(objArray){
+	var fails = []
+	_.each(objArray, function(obj){
+		if (obj.log && obj.log === '[error]'){
+			console.log('>> ' + obj.log, obj.status)
+			fails.push(obj.log + ' ' + obj.status)
+		} else {
+			if (obj.task === 'inform' && obj.log != '[error]'){
+				console.log(
+					'\n>>', obj.date, obj.status);
+			} else {
+				console.log(obj.test + obj.subject);
+			}
+		}
+		// if (obj.status && obj.status.indexOf('failed') > -1){
+		// 	fails.push(obj)
+		// }
+	})
+	if (fails.length > 0){
+		console.log('\n\n>> Failures:', fails.length)
+		_.each(fails, function(failure){
+			console.log(failure)
+		});
+	}
+}
+
+function consumer(array){
+	var first = []
+	var third = []
+	// console.log(array)
+	_.each(array, function(line){
+		if (line.indexOf("Executing") > -1){
+			first = line.split("|")
+			var second = {
+				task: 'perform',
+				test: first[1],
+				subject: first[2],
+				content: content(first[3]),
+			}
+			third.push(second)
+		} else {
+			line = line.split(" ")
+			var shift = {
+				task: 'inform',
+				date: (line[0] + ' ' + line[1]),
+				log: line[2],
+				status: funk(line) 
+			}
+			third.push(shift)
+		}
+	})
+	// console.log(third)
+	next(third)
+}
+
+fs.readFile(process.argv[2], 'utf8', function(err, data){
 	if (err) {
 		return console.log(err);
 	}
 	var array = data.split('\n')
+	// console.log(array)
 	consumer(array)
 })
